@@ -1,38 +1,40 @@
 import type { RequestHandler } from '@sveltejs/kit';
 import { redirect } from '@sveltejs/kit';
 import { PRIVATE_PASSWORD, PRIVATE_USERNAME } from '$env/static/private';
-import { authTokens } from '$lib/server/authStore';
+import { addToken } from '$lib/server/authStore';
 
 export const POST: RequestHandler = async ({ request, cookies, locals }) => {
 	try {
-		const body = await request.json();
-		const { username, password } = body;
+		let body = await request.json();
+		let { username, password } = body;
 
-		console.log('username:', username);
-		console.log('password:', password);
+		console.log('Attempting to login with username:', username, 'and password:', password);
 
 		if (username !== PRIVATE_USERNAME || password !== PRIVATE_PASSWORD) {
-			return new Response(JSON.stringify({ error: 'Invalid credentials' }), {
-				status: 401,
-				headers: { 'Content-Type': 'application/json' }
-			});
+			throw new Error('Invalid username or password');
 		}
 
-		const token = Array(100)
-			.fill(0)
-			.map(() => Math.random().toString(36).charAt(2))
-			.join('');
+		const array = new Uint32Array(50);
+		crypto.getRandomValues(array);
+		const specialChars = '!@#$%^&*()_+[]{}|;:,.<>?';
+		const token = Array.from(array, (dec) => {
+			const char = ('0' + dec.toString(36)).slice(-2);
+			return Math.random() > 0.8
+				? specialChars[Math.floor(Math.random() * specialChars.length)]
+				: char;
+		})
+			.join('')
+			.substring(0, 100);
+		await addToken(token);
 		cookies.set('authToken', token, { path: '/' });
-		authTokens.add(token);
-
-		console.log('locals.authTokens:', authTokens);
+		console.log('User logged in with token:', token);
 
 		return new Response(JSON.stringify({ success: true }), {
 			status: 200,
 			headers: { 'Content-Type': 'application/json' }
 		});
 	} catch (error) {
-		console.error('Failed to login:', error);
+		console.error('Failed to login');
 
 		return new Response(JSON.stringify({ error: 'Failed to login' }), {
 			status: 500,

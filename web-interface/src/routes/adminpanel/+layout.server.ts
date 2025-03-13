@@ -1,28 +1,29 @@
 import type { LayoutServerLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
-import { authTokens } from '$lib/server/authStore';
+import { verifyToken } from '$lib/server/authStore';
 
-export const load: LayoutServerLoad = async ({ cookies, locals }) => {
-	const authToken = cookies.get('authToken');
+export const load: LayoutServerLoad = async ({ cookies }) => {
+	let authToken = cookies.get('authToken');
 
-	console.log('authToken:', authToken);
+	console.log('User attempted to access admin panel with token:', authToken);
 
 	if (!authToken) {
+		console.log('User attempted to access admin panel without a token');
 		throw redirect(302, '/');
 	}
 
-	console.log('authToken:', authToken);
-	console.log('locals.authTokens:', authTokens);
-
 	// Verify the authToken here (e.g., check against a database or an auth service)
-	const isValidToken = authTokens.has(authToken);
+	let isValidToken = await verifyToken(authToken);
 
 	if (!isValidToken) {
 		if (cookies.get('authToken')) {
 			cookies.delete('authToken', { path: '/' });
 		}
+		console.log('User attempted to access admin panel with an invalid token');
 		throw redirect(302, '/');
 	}
+
+	console.log('User accessed admin panel with token:', authToken);
 
 	return {};
 };
