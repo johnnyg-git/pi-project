@@ -1,0 +1,1 @@
+<p>wowzers you are admin!</p>
